@@ -21,6 +21,7 @@ v1.1.0 → v1.2.0 → v1.3.0 순으로 확장하며 단계적으로 검증했다
 ### v1.3.0 – 확장 버전 적용 검증
 > Figure 3. v1.3.0 펌웨어 적용 후 디바이스 버전 파일 갱신 검증
 
-<img width="1364" height="1086" alt="image" src="https://github.com/user-attachments/assets/1b8bbd25-a1d1-4200-9d5d-3dea53903dcf" />
+<img width="682" height="511" alt="image" src="https://github.com/user-attachments/assets/f1721a87-b2d1-424b-839e-3dadd6c65cdc" />
+
 
 
