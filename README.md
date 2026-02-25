@@ -1,42 +1,81 @@
-## TL;DR
+# PIL Fleet OTA Hub
 
-Incus 기반 디바이스 컨테이너를 활용해 Fleet OTA 환경을 구성하고,
-Hub(FastAPI + systemd) – Device(OTA Agent + systemd) 간
-펌웨어 버전 조회 → 다운로드 → 실행 → 버전 갱신까지의
-End-to-End OTA 업데이트 흐름을 검증함.
+## 1. 프로젝트 개요
 
-초기에는 최신 버전을 서버 코드에 하드코딩하여 OTA 여부를 판단했으나,
-update.json 기반 외부 상태 관리 구조로 리팩토링하여
-펌웨어 버전 변경 시 서버 재배포 없이 OTA 정책 변경이 가능하도록 설계함.
+본 프로젝트는 Linux 기반 IoT 환경에서 Hub 서버와 Device 측 OTA Agent를 구성하여,
+디바이스가 주기적으로 Hub에 버전 조회를 요청하고 새로운 펌웨어가 존재할 경우
+다운로드 및 실행을 통해 버전을 갱신하는 OTA(Over-the-Air) 업데이트 흐름을
+End-to-End로 검증하는 것을 목표로 한다.
 
-## Key Contributions
+Hub는 FastAPI 기반 API 서버로 구현되며 systemd 서비스로 운영되고,
+Device는 Incus 컨테이너 기반으로 구성되어 OTA Agent 쉘 스크립트를 통해
+Hub와 통신하며 펌웨어 업데이트를 수행한다.
 
-- FastAPI 기반 OTA Hub 서버 구축 및 systemd 서비스화
-- Incus 컨테이너 기반 디바이스 OTA Agent 구현
-- Hub–Device 간 주기적 버전 체크 및 자동 펌웨어 다운로드/실행 검증
-- firmware artifact(versioned shell script) 관리 구조 설계
-- OTA Agent polling loop 설계 및 start-limit-hit 장애 해결
-- semver 기반 버전 파일 관리로 OTA 판단 로직 안정화
-- 운영 코드(main.py)와 OTA 정책(update.json) 분리
-- 서버 재배포 없이 OTA 기준 버전 변경 가능한 구조로 리팩토링
-- 운영 디렉터리와 Git 관리용 소스 디렉터리 분리
+---
 
-## Tech Stack
+## 2. 문제 정의
 
-- Python / FastAPI / Uvicorn
-- Linux / systemd
-- Incus (Container-based Device Simulation)
-- Shell Script (OTA Agent / Firmware)
-- Git / GitHub
+IoT 디바이스는 물리적으로 분산된 환경에서 동작하기 때문에,
+펌웨어 변경 또는 기능 개선 시 직접 접근하여 업데이트를 수행하기 어렵다.
 
-## Validation Result
+따라서 중앙 Hub를 통해 다음을 수행할 수 있는 OTA 구조가 필요하다.
 
-- Device → Hub 버전 조회 API 통신 정상 확인
-- 최신 버전 판단 후 OTA 필요 여부 응답
-- Hub 다운로드 API 통해 펌웨어 스크립트 수신
-- Device 측 펌웨어 실행 및 버전 파일 갱신
-- 1.1.0 → 1.2.0 자동 OTA 업데이트 로그 검증
-- 1.2.0 → 1.3.0 다운로드/실행 경로 직접 검증
+- 디바이스의 현재 펌웨어 버전 확인
+- 최신 버전 여부 판단
+- 업데이트 필요 시 펌웨어 다운로드 제공
+- 디바이스 측에서 다운로드 및 실행
+- 시스템 버전 상태 갱신
+
+이를 통해 디바이스를 원격으로 관리 가능한 Fleet OTA 환경을 구성할 수 있다.
+
+---
+
+## 3. 목표
+
+본 프로젝트의 주요 목표는 다음과 같다.
+
+- OTA Hub 서버 구축 및 systemd 서비스화
+- Device OTA Agent 구현 및 자동 실행 구조 구성
+- Hub–Device 간 버전 조회 API 통신 구현
+- 펌웨어 다운로드 및 실행 로직 구현
+- 버전 파일 갱신을 통한 OTA 적용 검증
+- Incus 기반 디바이스 컨테이너 환경에서 OTA End-to-End 흐름 검증
+
+---
+
+## 4. 사용 시나리오
+
+1. Device OTA Agent가 현재 펌웨어 버전을 확인한다.
+2. Hub 서버의 `/firmware/latest` API에 현재 버전을 전달한다.
+3. Hub는 최신 버전과 비교하여 업데이트 필요 여부를 판단한다.
+4. 업데이트가 필요한 경우 다운로드 URL을 반환한다.
+5. Device는 해당 URL을 통해 펌웨어 스크립트를 다운로드한다.
+6. 다운로드된 펌웨어를 실행한다.
+7. 시스템 버전 파일(`/etc/firmware_version`)을 갱신한다.
+
+---
+
+## 5. 시스템 아키텍처
+
+구성 요소는 다음과 같다.
+
+### Hub Server
+- FastAPI 기반 OTA API 서버
+- systemd 서비스(`pil-hub.service`)로 실행
+- 펌웨어 버전 판단 및 다운로드 제공
+
+### Device
+- Incus Container 기반 디바이스 환경
+- OTA Agent 쉘 스크립트 실행
+- systemd 서비스(`ota-agent.service`)로 주기 동작
+
+### Firmware Artifact
+- 버전별 쉘 스크립트 형태로 관리
+- 예: `firmware_v1.1.0.sh`, `firmware_v1.2.0.sh`
+
+Device는 Hub API를 통해 최신 버전을 확인하고,
+업데이트가 필요한 경우 펌웨어를 다운로드하여 실행한다.
+
 
 ## Versioned OTA Experiments
 
