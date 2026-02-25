@@ -63,31 +63,38 @@ Linux 기반 IoT 디바이스 플릿 환경을 가정하고, 중앙 Hub 서버(F
   - 버전 파일 갱신
 
 - **Firmware Artifacts**
-  - firmware_v1.1.0.sh
-  - firmware_v1.2.0.sh
-  - firmware_v1.3.0.sh
+  - `firmware_v1.1.0.sh`
+  - `firmware_v1.2.0.sh`
+  - `firmware_v1.3.0.sh`
+
+### 역할 분리 요약
+
+- Hub는 **업데이트 필요 여부 판단 + 펌웨어 제공**
+- Device Agent는 **주기 polling + 다운로드/실행**
+- Firmware Script는 **실행 후 로컬 버전 파일 갱신**
+- OTA 기준 버전은 `update.json`으로 분리하여 **서버 로직과 운영 정책을 분리**
 
 ---
 
-<img width="2048" height="1397" alt="image" src="https://github.com/user-attachments/assets/a2f9fc76-54fc-4951-9085-40a176dd3c64" />
+## 실습 환경 구성 및 초기 검증
 
+본격적인 OTA 자동화 검증 전에, 먼저 VM/컨테이너 환경이 정상 준비되었는지와 Hub–Device 간 요청 흐름의 기초 경로가 성립하는지 확인했다. 이 단계를 통해 이후 실패 원인을 네트워크/환경 문제와 애플리케이션 로직 문제로 분리해 볼 수 있도록 했다.
 
+### 1) Hub/Device 실습 환경 초기 준비 및 접근 확인
 
-<img width="1364" height="1022" alt="image" src="https://github.com/user-attachments/assets/0cdd9567-a109-46a2-96c0-3760c14a5dc9" />
+- Ubuntu VM 초기 부팅 및 접속 준비 상태 확인
+- 실습 환경에서 Hub와 Device 역할을 분리해 운영할 수 있는 기반 구성 확인
 
+<img width="1364" height="1022" alt="실습 환경 초기 준비" src="https://github.com/user-attachments/assets/d700f82b-6508-42e1-87dd-2aa38303575a" />
 
-<img width="1364" height="1022" alt="image" src="https://github.com/user-attachments/assets/fb51b07a-56dc-4433-905b-3f943db422ad" />
+### 2) Hub API/펌웨어 제공 경로 초기 확인
 
-<img width="1364" height="1022" alt="image" src="https://github.com/user-attachments/assets/d700f82b-6508-42e1-87dd-2aa38303575a" />
+- Hub 서버에서 펌웨어 파일을 제공할 수 있는지 확인
+- Device 측에서 수동 호출 기반으로 다운로드 경로를 점검해 OTA 기본 경로 사전 검증
 
-<img width="1364" height="1022" alt="image" src="https://github.com/user-attachments/assets/7b45a9f0-4772-4790-af68-1086dfd8f3fb" />
+<img width="1364" height="1022" alt="Hub API 및 다운로드 경로 초기 확인" src="https://github.com/user-attachments/assets/a32eba2a-8c24-4176-8dd2-1571640fd9f2" />
 
-<img width="1364" height="1022" alt="image" src="https://github.com/user-attachments/assets/5441ab08-e9e6-4700-a6e3-f1a0c236110a" />
-
-<img width="1364" height="1022" alt="image" src="https://github.com/user-attachments/assets/a32eba2a-8c24-4176-8dd2-1571640fd9f2" />
-
-
-
+---
 
 ## OTA 업데이트 생명주기
 
@@ -101,52 +108,82 @@ Linux 기반 IoT 디바이스 플릿 환경을 가정하고, 중앙 Hub 서버(F
 
 ---
 
-## OTA 검증 단계 (버전별 의미)
+## OTA 검증 타임라인 (버전별 의미와 검증 포인트)
+
+단순히 버전을 올리는 것이 아니라, 각 버전마다 검증 목적을 분리했다. 아래는 각 단계에서 무엇을 바꾸었고, 어떤 로그/결과로 검증했는지에 대한 기록이다.
 
 ### v1.1.0 — 초기 OTA 흐름 검증 (수동 실행 중심)
 
-- Hub API를 통한 버전 조회/다운로드 경로 확인
-- 디바이스에서 펌웨어를 직접 다운로드/실행하여 OTA 흐름 1차 검증
-- 버전 파일 저장 포맷 이슈 발견 및 수정  
-  - 잘못된 예: `Firmware updated to v1.1.0`  
-  - 수정 후: `1.1.0` (semver만 저장)
+초기 단계에서는 자동화 이전에 **OTA 기본 경로(조회 → 다운로드 → 실행 → 버전 파일 갱신)** 자체가 성립하는지 확인하는 데 집중했다. 디바이스에서 Hub API를 직접 호출하여 펌웨어를 내려받고, 실행 후 로컬 버전 파일 저장 결과를 점검했다.
 
-> 수동 다운로드/실행 기반 OTA 기본 경로 검증  
-> Hub API를 통해 펌웨어를 제공하고, 디바이스에서 실행 후 버전 파일이 정상 갱신되는지 1차 확인
+- 검증 내용
+  - Hub 다운로드 API 경로 동작 여부
+  - 디바이스에서 펌웨어 스크립트 다운로드/실행 가능 여부
+  - 실행 후 버전 파일 갱신 여부
+- 발견한 문제
+  - 버전 파일에 사람이 읽는 문장(`Firmware updated to v1.1.0`) 저장
+- 개선 방향
+  - 버전 비교 안정성을 위해 semver(`1.1.0`)만 저장하도록 수정
 
-<img width="1364" height="1022" alt="image" src="https://github.com/user-attachments/assets/3e24571d-7df5-4d8a-a1e6-d5a9d751d78f" />
+**확인 포인트**
+- 수동 다운로드/실행 기반으로 OTA 기본 경로가 성립하는지
+- 버전 파일 저장 포맷 이슈가 실제로 존재하는지
 
+<img width="1364" height="1022" alt="v1.1.0 수동 OTA 검증" src="https://github.com/user-attachments/assets/3e24571d-7df5-4d8a-a1e6-d5a9d751d78f" />
 
 ---
 
 ### v1.2.0 — OTA Agent 자동화 도입 (systemd + polling)
 
-- 디바이스 측 OTA Agent를 systemd 서비스로 등록
-- 주기적 polling으로 자동 감지/다운로드/실행까지 end-to-end 검증
-- `start-limit-hit` 문제 해결  
-  - 1회 실행 후 종료되는 스크립트를 `while true + sleep` 구조로 리팩토링
+v1.2.0에서는 수동 검증 단계를 넘어서, 디바이스 측 OTA Agent를 systemd 서비스로 등록하고 polling 기반으로 자동 업데이트가 수행되는지 end-to-end 검증했다.
 
-> systemd 기반 OTA Agent 자동 업데이트(E2E) 검증  
-> 디바이스 측 Agent가 주기적으로 Hub에 버전 조회 후, 업데이트 감지 시 자동 다운로드/실행까지 수행
+초기 Agent는 1회 실행 후 종료되는 구조였고, systemd `Restart` 정책과 결합되며 빠른 재시작 반복으로 `start-limit-hit`가 발생했다. 이를 해결하기 위해 Agent 내부를 `while true + sleep` 기반 polling loop 구조로 리팩토링했다.
 
-<img width="682" height="543" alt="image" src="https://github.com/user-attachments/assets/b0d0466b-39c7-4b9d-8523-70486c3339b2" />
+- 변경 사항
+  - OTA Agent systemd 서비스 등록
+  - 일회성 실행 → polling loop 구조로 변경
+- 검증 목표
+  - 주기적 버전 조회
+  - 업데이트 감지 시 자동 다운로드/실행
+  - 버전 갱신 후 다음 주기부터 `No Update Needed` 상태 유지
 
+**확인 포인트**
+- 로그에서 `Update Available` → 다운로드/실행 → `Firmware Updated` → 다음 주기 최신 버전 인식 흐름이 연속으로 나타나는지
+
+<img width="682" height="543" alt="v1.2.0 OTA Agent 자동 업데이트 로그" src="https://github.com/user-attachments/assets/b0d0466b-39c7-4b9d-8523-70486c3339b2" />
 
 ---
 
 ### v1.3.0 — 운영 구조 개선 및 확장 검증
 
-- Hub 응답 구조 개선 (`filename` 필드 포함 검토)
-- 펌웨어 로그 출력 강화로 검증 가시성 개선
-- 버전 1.2.0 → 1.3.0 반영까지 최종 검증
+v1.3.0에서는 Hub 응답 구조 개선(예: `filename` 필드 포함)과 펌웨어 로그 출력 강화를 적용한 뒤, 기존 자동 OTA 흐름이 회귀(regression) 없이 유지되는지 재검증했다.
 
-> Hub 응답 구조 개선 이후 OTA 재검증  
-> 자동 업데이트 및 버전 갱신 정상 동작 확인
+핵심은 **응답 구조를 바꿔도 Agent 자동 업데이트 흐름이 안정적으로 유지되는지**를 확인하는 것이다.
 
-<img width="1364" height="1086" alt="image" src="https://github.com/user-attachments/assets/e59b9e7d-7804-4ec5-b0dc-b97e6b3217af" />
-<img width="1364" height="1086" alt="image" src="https://github.com/user-attachments/assets/a7366c29-68d9-4fe5-ae4e-2d3e5e338e64" />
-<img width="1364" height="1086" alt="image" src="https://github.com/user-attachments/assets/85dbf4f7-9075-4c7f-989d-a4fc85249164" />
+- 개선 내용
+  - Hub 응답 구조 개선 (`filename` 필드 포함)
+  - 펌웨어 로그 출력 강화로 검증 가시성 향상
+- 검증 목표
+  - Hub 응답 변경 이후에도 다운로드/실행 흐름 정상 유지
+  - 버전 `1.2.0 → 1.3.0` 자동 반영 및 버전 파일 최종 갱신 확인
 
+#### 1) Hub 응답 구조 개선 이후 재검증 (중간 확인 로그)
+
+- `/firmware/latest` 응답 형태 점검
+- `filename` 포함 응답 기반 다운로드 경로 재확인
+- Device 측 테스트 다운로드 및 실행 전 단계 점검
+
+<img width="1364" height="1086" alt="v1.3.0 Hub 응답 구조 개선 후 재검증" src="https://github.com/user-attachments/assets/e59b9e7d-7804-4ec5-b0dc-b97e6b3217af" />
+
+#### 2) v1.3.0 OTA 최종 반영 확인
+
+- 펌웨어 실행 로그(`OTA START`, 적용 버전 로그, `OTA DONE`) 확인
+- `/etc/firmware_version` 값이 `1.3.0`으로 갱신되었는지 최종 확인
+
+**확인 포인트**
+- 자동 업데이트 실행 로그와 버전 파일 결과가 일치하는지 (`1.3.0`)
+
+<img width="1364" height="1086" alt="v1.3.0 OTA 최종 반영 확인" src="https://github.com/user-attachments/assets/85dbf4f7-9075-4c7f-989d-a4fc85249164" />
 
 ---
 
@@ -159,7 +196,7 @@ Linux 기반 IoT 디바이스 플릿 환경을 가정하고, 중앙 Hub 서버(F
 - 서버 기준 최신 버전 = `"1.2.0"`
 - 디바이스 버전과 다르면 업데이트 수행
 
-한계:
+#### 한계
 
 - 버전 증가 시마다 서버 코드 수정 필요
 - 서비스 재배포 필요
@@ -174,7 +211,7 @@ Linux 기반 IoT 디바이스 플릿 환경을 가정하고, 중앙 Hub 서버(F
 - `update.json`의 `latest` 값을 읽어 최신 버전 기준으로 사용
 - 운영자는 JSON 값만 변경하면 OTA 기준 변경 가능
 
-효과:
+#### 효과
 
 - 서버 코드 수정 없이 OTA 기준 변경 가능
 - 재배포 빈도 감소
@@ -186,45 +223,43 @@ Linux 기반 IoT 디바이스 플릿 환경을 가정하고, 중앙 Hub 서버(F
 
 OTA Agent는 일회성 스크립트가 아니라, systemd에 의해 지속 관리되는 주기 실행형 프로세스로 설계했다.
 
-동작 로직:
+### 동작 로직
 
-- 현재 버전 읽기
-- Hub 버전 체크 API 호출
-- `update == true`이면 다운로드
-- 펌웨어 실행
+- 현재 버전 읽기 (`/etc/firmware_version`)
+- Hub 버전 체크 API 호출 (`/firmware/latest`)
+- `update == true`이면 펌웨어 다운로드
+- 다운로드한 펌웨어 실행
 - 버전 파일 갱신
 - `sleep` 후 반복
 
-초기 Agent는 1회 실행 후 종료되는 구조였고, systemd Restart 정책과 결합되면서 빠른 재시작이 반복되어 `start-limit-hit`가 발생했다.
+### 설계 변경 배경
 
-이를 해결하기 위해 스크립트 내부를 polling loop(`while true + sleep`) 구조로 변경했다.
+초기 Agent는 1회 실행 후 종료되는 구조였고, systemd `Restart` 정책과 결합되면서 빠른 재시작이 반복되어 `start-limit-hit`가 발생했다.
+
+이를 해결하기 위해 스크립트 내부를 polling loop(`while true + sleep`) 구조로 변경했다. 이로써 systemd는 장기 실행 프로세스를 안정적으로 관리하고, OTA Agent는 주기적으로 Hub를 조회하는 역할에 집중하도록 분리했다.
 
 ---
 
 ## 트러블슈팅 요약
 
 ### 1) OTA Agent 재시작 폭주 (`start-limit-hit`)
-
 - 원인: 1회 실행 후 종료되는 스크립트 + systemd restart 정책 충돌
 - 해결: polling loop 구조로 변경
 
 ### 2) 버전 문자열 포맷 불일치
-
 - 원인: 버전 파일에 사람이 읽는 문장 저장
 - 해결: semver(`1.1.0`)만 저장하도록 수정
 
 ### 3) 포트 8000 충돌
-
-- 원인: pil-hub.service가 이미 uvicorn 실행 중인데 수동 실행 시도
-- 해결: systemd 기준으로 서비스 재시작
+- 원인: `pil-hub.service`가 이미 uvicorn 실행 중인데 수동 실행 시도
+- 해결: systemd 기준으로 서비스 재시작 및 상태 확인 중심으로 운영
 
 ### 4) Hub/Device 서비스 위치 혼동
-
-- 원인: ota-agent.service를 호스트에서 재시작 시도
+- 원인: `ota-agent.service`를 호스트에서 재시작 시도
 - 해결: 컨테이너 내부에서 관리하도록 역할 분리
 
 ---
 
 ## 요약
 
-FastAPI 기반 OTA Hub와 Incus 기반 디바이스 OTA Agent를 구성하여, 버전 체크–다운로드–실행–버전 갱신까지의 OTA 업데이트를 end-to-end로 검증했고, start-limit-hit 및 systemd 기반 운영 이슈를 해결했으며, update.json 기반 외부 상태 관리로 OTA 기준 버전 운영 구조를 개선했다.
+FastAPI 기반 OTA Hub와 Incus 기반 디바이스 OTA Agent를 구성하여, 버전 체크–다운로드–실행–버전 갱신까지의 OTA 업데이트를 end-to-end로 검증했다. 또한 `start-limit-hit` 및 systemd 운영 이슈를 해결했으며, `update.json` 기반 외부 상태 관리로 OTA 기준 버전 운영 구조를 개선했다.
