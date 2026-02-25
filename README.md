@@ -85,14 +85,17 @@ Linux 기반 IoT 디바이스 플릿 환경을 가정하고, 중앙 Hub 서버(F
 - Ubuntu VM 초기 부팅 및 접속 준비 상태 확인
 - 실습 환경에서 Hub와 Device 역할을 분리해 운영할 수 있는 기반 구성 확인
 
-<img width="1364" height="1022" alt="실습 환경 초기 준비" src="https://github.com/user-attachments/assets/d700f82b-6508-42e1-87dd-2aa38303575a" />
+<img width="1364" height="1022" alt="image" src="https://github.com/user-attachments/assets/6949fbb2-d93c-46a7-a837-7e630b561b55" />
+
+
 
 ### 2) Hub API/펌웨어 제공 경로 초기 확인
 
 - Hub 서버에서 펌웨어 파일을 제공할 수 있는지 확인
 - Device 측에서 수동 호출 기반으로 다운로드 경로를 점검해 OTA 기본 경로 사전 검증
 
-<img width="1364" height="1022" alt="Hub API 및 다운로드 경로 초기 확인" src="https://github.com/user-attachments/assets/a32eba2a-8c24-4176-8dd2-1571640fd9f2" />
+<img width="1364" height="1022" alt="image" src="https://github.com/user-attachments/assets/3effa00b-9b14-455e-98cc-128bec803421" />
+
 
 ---
 
