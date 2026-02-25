@@ -132,7 +132,8 @@ Linux 기반 IoT 디바이스 플릿 환경을 가정하고, 중앙 Hub 서버(F
 - 수동 다운로드/실행 기반으로 OTA 기본 경로가 성립하는지
 - 버전 파일 저장 포맷 이슈가 실제로 존재하는지
 
-<img width="791" height="900" alt="image" src="https://github.com/user-attachments/assets/4cdbcfdd-bb91-4aa7-aed3-9faa00e62890" />
+<img width="791" height="900" alt="image" src="https://github.com/user-attachments/assets/b55e6caf-270a-45bb-8698-cfbf7730c06c" />
+
 
 
 ---
